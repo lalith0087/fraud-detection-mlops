@@ -9,3 +9,4 @@ pytest
 httpx
 mlflow
 pyarrow
+matplotlib

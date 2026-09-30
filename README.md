@@ -15,6 +15,10 @@ End-to-end fraud detection: data generation → training → REST API → Docker
 | Real (ULB credit-card, 284,807 txns, 0.17% fraud) | 0.735 | 0.962 | 0.734 | 0.816 | 0.773 |
 | Synthetic (1% fraud, overlapping classes) | 0.586 | 0.791 | 0.457 | 0.567 | 0.506 |
 
+![Results](docs/results.png)
+
+On the real data at the tuned threshold: 80 of 98 frauds caught, with 29 false alarms out of 56,864 legitimate transactions.
+
 The decision threshold is tuned for F1 on a validation split (0.9 on the real data), not fixed at 0.5.
 
 ## Run it
@@ -22,6 +26,7 @@ The decision threshold is tuned for F1 on a validation split (0.9 on the real da
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m src.train --data real   # or --data synthetic (default)
+python -m src.plot                 # regenerate docs/results.png
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 uvicorn src.api:app --reload
 pytest
