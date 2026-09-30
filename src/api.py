@@ -1,34 +1,27 @@
-"""FastAPI service: POST /predict scores a transaction."""
+"""FastAPI service: POST /predict scores a transaction given its feature dict."""
 from pathlib import Path
 
 import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-
-from src.data import FEATURES
+from pydantic import BaseModel
 
 MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "model.joblib"
 app = FastAPI(title="Fraud Detection API")
-_model = None
+_bundle = None
 
 
 class Transaction(BaseModel):
-    amount: float = Field(ge=0)
-    hour: int = Field(ge=0, le=23)
-    merchant_risk: float = Field(ge=0, le=1)
-    distance_from_home: float = Field(ge=0)
-    txn_last_24h: int = Field(ge=0)
-    is_foreign: int = Field(ge=0, le=1)
+    features: dict[str, float]
 
 
-def get_model():
-    global _model
-    if _model is None:
+def get_bundle():
+    global _bundle
+    if _bundle is None:
         if not MODEL_PATH.exists():
             raise HTTPException(503, "Model not trained. Run: python -m src.train")
-        _model = joblib.load(MODEL_PATH)
-    return _model
+        _bundle = joblib.load(MODEL_PATH)
+    return _bundle
 
 
 @app.get("/health")
@@ -36,7 +29,17 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/features")
+def features():
+    return {"features": get_bundle()["features"]}
+
+
 @app.post("/predict")
-def predict(txn: Transaction, threshold: float = 0.5):
-    proba = float(get_model().predict_proba(pd.DataFrame([txn.model_dump()])[FEATURES])[0, 1])
-    return {"fraud_probability": round(proba, 4), "is_fraud": proba >= threshold}
+def predict(txn: Transaction, threshold: float | None = None):
+    b = get_bundle()
+    missing = [f for f in b["features"] if f not in txn.features]
+    if missing:
+        raise HTTPException(422, f"Missing features: {missing}")
+    proba = float(b["model"].predict_proba(pd.DataFrame([txn.features])[b["features"]])[0, 1])
+    t = b["threshold"] if threshold is None else threshold
+    return {"fraud_probability": round(proba, 4), "is_fraud": proba >= t, "threshold": t}

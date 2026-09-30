@@ -7,3 +7,5 @@ uvicorn
 pydantic
 pytest
 httpx
+mlflow
+pyarrow

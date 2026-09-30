@@ -1,4 +1,6 @@
 """Synthetic, highly imbalanced card-transaction data (~1% fraud)."""
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -20,3 +22,26 @@ def make_transactions(n: int = 50_000, fraud_rate: float = 0.01, seed: int = 42)
         "is_fraud": y,
     })
     return df
+
+
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+
+def load_real() -> pd.DataFrame:
+    """ULB credit-card fraud dataset (284,807 txns, 0.17% fraud) via OpenML; cached in data/."""
+    cache = DATA_DIR / "creditcard.parquet"
+    if cache.exists():
+        return pd.read_parquet(cache)
+    from sklearn.datasets import fetch_openml
+
+    df = fetch_openml(data_id=1597, as_frame=True, parser="auto").frame
+    df = df.rename(columns={"Class": "is_fraud"}).astype(float)
+    df["is_fraud"] = df["is_fraud"].astype(int)
+    DATA_DIR.mkdir(exist_ok=True)
+    df.to_parquet(cache)
+    return df
+
+
+def load(source: str = "synthetic") -> tuple[pd.DataFrame, list[str]]:
+    df = load_real() if source == "real" else make_transactions()
+    return df, [c for c in df.columns if c != "is_fraud"]
