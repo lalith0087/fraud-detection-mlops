@@ -14,6 +14,7 @@ from sklearn.metrics import average_precision_score, precision_recall_fscore_sup
 from sklearn.model_selection import train_test_split
 
 from src.data import load
+from src.drift import build_reference
 
 ROOT = Path(__file__).resolve().parent.parent
 MODEL_DIR = ROOT / "models"
@@ -69,7 +70,8 @@ def train(source: str = "synthetic", cost_fn: float = 100.0, cost_fp: float = 5.
         mlflow.log_params({**params, "data": source, "threshold": threshold, "cost_fn": cost_fn, "cost_fp": cost_fp, "n_rows": len(df)})
         mlflow.log_metrics(metrics)
         MODEL_DIR.mkdir(exist_ok=True)
-        joblib.dump({"model": model, "features": features, "threshold": threshold}, MODEL_DIR / "model.joblib")
+        joblib.dump({"model": model, "features": features, "threshold": threshold,
+                     "reference": build_reference(X_fit)}, MODEL_DIR / "model.joblib")
         metrics.update(threshold=threshold, data=source)
         (MODEL_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
         mlflow.log_artifact(str(MODEL_DIR / "metrics.json"))
