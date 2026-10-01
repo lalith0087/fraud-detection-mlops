@@ -37,11 +37,22 @@ The API keeps the last 1,000 scored transactions and `GET /drift` compares them 
 
 Offline demo (`python -m src.drift --data real`): held-out data scores max PSI 0.0003 (stable); the same data shifted by +1 std scores 8.3 (significant, led by `Amount`).
 
+## Model registry
+Each training run registers a new version of `fraud-detector` in the MLflow registry and tags it `candidate`. Promotion to `production` is a separate, gated step:
+
+```bash
+python -m src.train --data real      # registers a new candidate version
+python -m src.registry promote       # gate, set `production` alias, export to models/model.joblib
+python -m src.registry list          # versions, PR-AUC, cost, aliases
+```
+The gate refuses a candidate whose PR-AUC is lower than the current production model, or that was trained on a different dataset, unless you pass `--force`. The API only serves the promoted model (`models/model.joblib`), never a raw training output.
+
 ## Run it
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m src.train --data real   # or --data synthetic (default)
+python -m src.registry promote    # serve the new model
 python -m src.plot                 # regenerate docs/results.png
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 uvicorn src.api:app --reload
@@ -55,4 +66,4 @@ curl -X POST localhost:8000/predict -H 'content-type: application/json' \
 ```
 
 ## Next steps
-Model registry, automated retraining when drift is significant.
+Automated retraining when drift is significant, a persistent drift buffer (Redis).

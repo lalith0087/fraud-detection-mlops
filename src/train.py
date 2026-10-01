@@ -1,4 +1,5 @@
-"""Train a fraud model, log to MLflow, write models/model.joblib + models/metrics.json.
+"""Train a fraud model, log to MLflow, write models/candidate.joblib + models/metrics.json,
+and register a new model version (see src/registry.py to promote it to production).
 
 Usage: python -m src.train [--data synthetic|real] [--cost-fn 100] [--cost-fp 5]
 """
@@ -18,6 +19,8 @@ from src.drift import build_reference
 
 ROOT = Path(__file__).resolve().parent.parent
 MODEL_DIR = ROOT / "models"
+TRACKING_URI = f"sqlite:///{ROOT / 'mlflow.db'}"
+MODEL_NAME = "fraud-detector"
 
 
 def best_threshold(y, proba) -> float:
@@ -50,7 +53,7 @@ def train(source: str = "synthetic", cost_fn: float = 100.0, cost_fp: float = 5.
     )
     X_fit, X_val, y_fit, y_val = train_test_split(X_tr, y_tr, test_size=0.2, stratify=y_tr, random_state=42)
     params = {"class_weight": "balanced", "random_state": 42}
-    mlflow.set_tracking_uri(f"sqlite:///{ROOT / 'mlflow.db'}")
+    mlflow.set_tracking_uri(TRACKING_URI)
     mlflow.set_experiment("fraud-detection")
     with mlflow.start_run(run_name=source):
         model = HistGradientBoostingClassifier(**params).fit(X_fit, y_fit)
@@ -71,10 +74,20 @@ def train(source: str = "synthetic", cost_fn: float = 100.0, cost_fp: float = 5.
         mlflow.log_metrics(metrics)
         MODEL_DIR.mkdir(exist_ok=True)
         joblib.dump({"model": model, "features": features, "threshold": threshold,
-                     "reference": build_reference(X_fit)}, MODEL_DIR / "model.joblib")
+                     "reference": build_reference(X_fit)}, MODEL_DIR / "candidate.joblib")
         metrics.update(threshold=threshold, data=source)
         (MODEL_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
         mlflow.log_artifact(str(MODEL_DIR / "metrics.json"))
+        mlflow.log_artifact(str(MODEL_DIR / "candidate.joblib"), artifact_path="bundle")
+        run = mlflow.active_run()
+    client = mlflow.MlflowClient()
+    try:
+        client.create_registered_model(MODEL_NAME)
+    except mlflow.exceptions.MlflowException:
+        pass  # already exists
+    version = client.create_model_version(MODEL_NAME, source=f"{run.info.artifact_uri}/bundle", run_id=run.info.run_id)
+    client.set_registered_model_alias(MODEL_NAME, "candidate", version.version)
+    metrics["registered_version"] = int(version.version)
     return metrics
 
 

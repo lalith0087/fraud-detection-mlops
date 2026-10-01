@@ -4,6 +4,8 @@ from src import api
 from src.data import FEATURES, make_transactions
 from src.drift import build_reference, drift_report
 import numpy as np
+import pytest
+import src.train as train_mod
 from src.train import best_cost_threshold, total_cost, train
 
 
@@ -12,10 +14,24 @@ def test_data_is_imbalanced():
     assert 0.003 < df["is_fraud"].mean() < 0.03
 
 
-def test_train_and_predict():
+@pytest.fixture
+def isolated(tmp_path, monkeypatch):
+    """Keep tests away from the repo's models/ dir and MLflow registry."""
+    monkeypatch.setattr(train_mod, "MODEL_DIR", tmp_path)
+    monkeypatch.setattr(train_mod, "TRACKING_URI", f"sqlite:///{tmp_path / 'mlflow.db'}")
+    monkeypatch.setattr(api, "MODEL_PATH", tmp_path / "model.joblib")
+    monkeypatch.setattr(api, "_bundle", None)
+    return tmp_path
+
+
+def serve(tmp_path):
+    (tmp_path / "model.joblib").write_bytes((tmp_path / "candidate.joblib").read_bytes())
+
+
+def test_train_and_predict(isolated):
     metrics = train()
+    serve(isolated)
     assert metrics["pr_auc"] > 0.4
-    api._model = None
     client = TestClient(api.app)
     assert client.get("/health").json() == {"status": "ok"}
     risky = dict(amount=900, hour=2, merchant_risk=0.9, distance_from_home=300, txn_last_24h=8, is_foreign=1)
@@ -43,9 +59,9 @@ def test_drift_detects_shift():
     assert shifted["overall"] == "significant"
 
 
-def test_drift_endpoint():
+def test_drift_endpoint(isolated):
     train()
-    api._bundle = None
+    serve(isolated)
     api._recent.clear()
     client = TestClient(api.app)
     assert client.get("/drift").json()["status"] == "insufficient_data"
@@ -54,3 +70,18 @@ def test_drift_endpoint():
         client.post("/predict", json={"features": row})
     r = client.get("/drift").json()
     assert r["overall"] == "significant"  # 100 identical rows look nothing like the training mix
+
+
+def test_registry_promotion_gate(isolated):
+    from src import registry
+    train()
+    out = registry.promote()
+    assert out["promoted"] == 1 and (isolated / "model.joblib").exists()
+    train(); registry.promote()                      # equal PR-AUC, same data: allowed
+    assert [v["version"] for v in registry.list_versions()] == [1, 2]
+    train()                                          # v3, then pretend it scored worse
+    c = registry._client()
+    c.log_metric(c.get_model_version(train_mod.MODEL_NAME, "3").run_id, "pr_auc", 0.0)
+    with pytest.raises(SystemExit):
+        registry.promote()
+    assert registry.promote(force=True)["promoted"] == 3
