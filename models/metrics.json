@@ -1,9 +1,12 @@
 {
   "pr_auc": 0.7354,
   "roc_auc": 0.9624,
-  "precision": 0.7339,
-  "recall": 0.8163,
-  "f1": 0.7729,
-  "threshold": 0.9,
+  "precision": 0.4804,
+  "recall": 0.8776,
+  "f1": 0.6209,
+  "cost_per_1k_txns": 29.23,
+  "cost_per_1k_at_f1_threshold": 34.15,
+  "cost_per_1k_at_0.5": 30.63,
+  "threshold": 0.62,
   "data": "real"
 }

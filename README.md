@@ -14,14 +14,23 @@ End-to-end fraud detection: data generation → training → REST API → Docker
 ## Results (held-out 20%)
 | Data | PR-AUC | ROC-AUC | Precision | Recall | F1 |
 |---|---|---|---|---|---|
-| Real (ULB credit-card, 284,807 txns, 0.17% fraud) | 0.735 | 0.962 | 0.734 | 0.816 | 0.773 |
+| Real (ULB credit-card, 284,807 txns, 0.17% fraud) | 0.735 | 0.962 | 0.480 | 0.878 | 0.621 |
 | Synthetic (1% fraud, overlapping classes) | 0.586 | 0.791 | 0.457 | 0.567 | 0.506 |
 
 ![Results](docs/results.png)
 
-On the real data at the tuned threshold: 80 of 98 frauds caught, with 29 false alarms out of 56,864 legitimate transactions.
+On the real data at the tuned threshold: 86 of 98 frauds caught, with 93 false alarms out of 56,864 legitimate transactions.
 
-The decision threshold is tuned for F1 on a validation split (0.9 on the real data), not fixed at 0.5.
+## Cost-based threshold tuning
+The decision threshold is chosen to minimise business cost, not F1: a missed fraud costs `--cost-fn` (default 100) and a false alarm costs `--cost-fp` (default 5). On the real data (threshold 0.62):
+
+| Threshold strategy | Cost per 1,000 transactions |
+|---|---|
+| Default 0.5 | 30.63 |
+| Best F1 | 34.15 |
+| **Best cost (used)** | **29.23** |
+
+Optimising F1 alone is actually the most expensive choice here, because it trades away recall for precision that costs more than it saves. Change the costs to match your business: `python -m src.train --data real --cost-fn 200 --cost-fp 2`.
 
 ## Run it
 ```bash
@@ -40,4 +49,4 @@ curl -X POST localhost:8000/predict -H 'content-type: application/json' \
 ```
 
 ## Next steps
-Cost-based threshold tuning, drift monitoring, model registry.
+Drift monitoring, model registry.
