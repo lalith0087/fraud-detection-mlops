@@ -1,5 +1,7 @@
 # Fraud Detection MLOps
 
+[![CI](https://github.com/lalith0087/fraud-detection-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/lalith0087/fraud-detection-mlops/actions/workflows/ci.yml)
+
 End-to-end fraud detection: data generation → training → REST API → Docker → CI.
 
 ## Overview
