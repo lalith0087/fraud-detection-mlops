@@ -29,6 +29,11 @@ def get_bundle():
     return _bundle
 
 
+@app.get("/")
+def root():
+    return {"service": "fraud-detection-api", "docs": "/docs", "health": "/health", "drift": "/drift", "features": "/features"}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

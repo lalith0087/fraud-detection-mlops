@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: fraud-detection-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATA        # build arg: train on the real dataset
+        value: real

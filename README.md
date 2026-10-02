@@ -65,5 +65,8 @@ curl -X POST localhost:8000/predict -H 'content-type: application/json' \
   -d '{"features":{"amount":900,"hour":2,"merchant_risk":0.9,"distance_from_home":300,"txn_last_24h":8,"is_foreign":1}}'
 ```
 
+## Deploy
+`render.yaml` is a Render blueprint: it builds the Dockerfile with `DATA=real` (trains on the real dataset during the build) and serves the API, with `/health` as the health check. Interactive docs are at `/docs`.
+
 ## Next steps
 Automated retraining when drift is significant, a persistent drift buffer (Redis).
