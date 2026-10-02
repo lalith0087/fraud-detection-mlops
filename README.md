@@ -1,5 +1,7 @@
 # Fraud Detection MLOps
 
+**Live demo:** https://fraud-detection-api-o6vb.onrender.com/docs (free tier: the first request after idle can take ~50 s to wake the service)
+
 [![CI](https://github.com/lalith0087/fraud-detection-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/lalith0087/fraud-detection-mlops/actions/workflows/ci.yml)
 
 End-to-end fraud detection: data generation → training → REST API → Docker → CI.
