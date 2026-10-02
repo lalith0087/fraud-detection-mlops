@@ -1,6 +1,16 @@
 # Fraud Detection MLOps
 
-**Live demo:** https://fraud-detection-api-o6vb.onrender.com/docs (free tier: the first request after idle can take ~50 s to wake the service)
+## Live demo
+| | Link |
+|---|---|
+| Interactive API docs | https://fraud-detection-api-o6vb.onrender.com/docs |
+| Sample fraud + legitimate transactions | https://fraud-detection-api-o6vb.onrender.com/example |
+| Health check | https://fraud-detection-api-o6vb.onrender.com/health |
+| Drift report | https://fraud-detection-api-o6vb.onrender.com/drift |
+| Source code | https://github.com/lalith0087/fraud-detection-mlops |
+
+Try it: open `/example`, copy the `fraud` object, then in `/docs` use **POST /predict** > Try it out, paste it in the request body and Execute.
+Hosted on Render's free tier, so the first request after idle can take ~50 s to wake the service.
 
 [![CI](https://github.com/lalith0087/fraud-detection-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/lalith0087/fraud-detection-mlops/actions/workflows/ci.yml)
 
