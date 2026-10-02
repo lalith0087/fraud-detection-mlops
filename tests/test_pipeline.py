@@ -85,3 +85,15 @@ def test_registry_promotion_gate(isolated):
     with pytest.raises(SystemExit):
         registry.promote()
     assert registry.promote(force=True)["promoted"] == 3
+
+
+def test_example_endpoint_roundtrip(isolated):
+    train()
+    serve(isolated)
+    client = TestClient(api.app)
+    ex = client.get("/example").json()
+    assert "legitimate" in ex
+    for body in ex.values():                       # every example is a valid /predict body
+        assert client.post("/predict", json=body).status_code == 200
+    if "fraud" in ex:
+        assert client.post("/predict", json=ex["fraud"]).json()["is_fraud"] is True

@@ -70,11 +70,18 @@ def train(source: str = "synthetic", cost_fn: float = 100.0, cost_fp: float = 5.
             "cost_per_1k_at_f1_threshold": round(1000 * total_cost(y_te, proba, f1_threshold, cost_fn, cost_fp) / len(y_te), 2),
             "cost_per_1k_at_0.5": round(1000 * total_cost(y_te, proba, 0.5, cost_fn, cost_fp) / len(y_te), 2),
         }
+        # one confidently-caught fraud and one legitimate transaction, for the API's /example endpoint
+        hit = (y_te.to_numpy() == 1) & (proba >= threshold)
+        ok = (y_te.to_numpy() == 0) & (proba < threshold)
+        examples = {
+            "fraud": X_te[hit].iloc[0].to_dict() if hit.any() else None,
+            "legitimate": X_te[ok].iloc[0].to_dict(),
+        }
         mlflow.log_params({**params, "data": source, "threshold": threshold, "cost_fn": cost_fn, "cost_fp": cost_fp, "n_rows": len(df)})
         mlflow.log_metrics(metrics)
         MODEL_DIR.mkdir(exist_ok=True)
         joblib.dump({"model": model, "features": features, "threshold": threshold,
-                     "reference": build_reference(X_fit)}, MODEL_DIR / "candidate.joblib")
+                     "reference": build_reference(X_fit), "examples": examples}, MODEL_DIR / "candidate.joblib")
         metrics.update(threshold=threshold, data=source)
         (MODEL_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
         mlflow.log_artifact(str(MODEL_DIR / "metrics.json"))

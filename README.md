@@ -62,6 +62,7 @@ pytest
 ```
 ```bash
 curl localhost:8000/drift      # PSI drift report on recent traffic
+curl localhost:8000/example    # sample fraud + legitimate request bodies for /predict
 curl localhost:8000/features   # feature names the loaded model expects
 curl -X POST localhost:8000/predict -H 'content-type: application/json' \
   -d '{"features":{"amount":900,"hour":2,"merchant_risk":0.9,"distance_from_home":300,"txn_last_24h":8,"is_foreign":1}}'

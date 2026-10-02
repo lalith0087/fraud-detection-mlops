@@ -31,7 +31,7 @@ def get_bundle():
 
 @app.get("/")
 def root():
-    return {"service": "fraud-detection-api", "docs": "/docs", "health": "/health", "drift": "/drift", "features": "/features"}
+    return {"service": "fraud-detection-api", "docs": "/docs", "health": "/health", "drift": "/drift", "features": "/features", "example": "/example"}
 
 
 @app.get("/health")
@@ -42,6 +42,15 @@ def health():
 @app.get("/features")
 def features():
     return {"features": get_bundle()["features"]}
+
+
+@app.get("/example")
+def example():
+    """Ready-to-send /predict request bodies: one real fraud and one legitimate transaction."""
+    b = get_bundle()
+    if "examples" not in b:
+        raise HTTPException(409, "Model has no examples. Retrain: python -m src.train")
+    return {name: {"features": feats} for name, feats in b["examples"].items() if feats}
 
 
 @app.post("/predict")
