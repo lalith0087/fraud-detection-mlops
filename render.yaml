@@ -7,3 +7,12 @@ services:
     envVars:
       - key: DATA        # build arg: train on the real dataset
         value: real
+      - key: REDIS_URL   # persistent drift buffer
+        fromService:
+          type: keyvalue
+          name: fraud-redis
+          property: connectionString
+  - type: keyvalue
+    name: fraud-redis
+    plan: free
+    ipAllowList: []      # only reachable from services in this Render account/region

@@ -97,3 +97,39 @@ def test_example_endpoint_roundtrip(isolated):
         assert client.post("/predict", json=body).status_code == 200
     if "fraud" in ex:
         assert client.post("/predict", json=ex["fraud"]).json()["is_fraud"] is True
+
+
+def test_buffer_redis_roundtrip_and_cap():
+    import fakeredis
+    from src.buffer import RecentBuffer
+    r = fakeredis.FakeRedis()
+    buf = RecentBuffer(maxlen=5, client=r)
+    for i in range(8):
+        buf.add({"x": i})
+    assert buf.backend == "redis" and len(buf) == 5
+    assert [row["x"] for row in buf.items()] == [3, 4, 5, 6, 7]       # capped, order kept
+    assert len(RecentBuffer(maxlen=5, client=r)) == 5                  # a new instance (restart) sees it
+    buf.clear()
+    assert len(buf) == 0
+
+
+def test_buffer_falls_back_to_memory_when_redis_dies():
+    from src.buffer import RecentBuffer
+
+    class Dead:
+        def pipeline(self): raise ConnectionError("down")
+        def lrange(self, *a): raise ConnectionError("down")
+        def llen(self, *a): raise ConnectionError("down")
+
+    buf = RecentBuffer(maxlen=5, client=Dead())
+    buf.add({"x": 1})
+    assert buf.backend == "memory" and buf.items() == [{"x": 1}]
+
+
+def test_retrain_only_on_significant_drift(isolated):
+    from src.retrain import maybe_retrain
+    train()
+    assert maybe_retrain({"overall": "stable", "max_psi": 0.01})["retrained"] is False
+    assert maybe_retrain({"status": "insufficient_data"})["retrained"] is False
+    out = maybe_retrain({"overall": "significant", "max_psi": 8.3})
+    assert out["retrained"] is True and out["promoted"] is True

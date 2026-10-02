@@ -45,7 +45,7 @@ The decision threshold is chosen to minimise business cost, not F1: a missed fra
 Optimising F1 alone is actually the most expensive choice here, because it trades away recall for precision that costs more than it saves. Change the costs to match your business: `python -m src.train --data real --cost-fn 200 --cost-fp 2`.
 
 ## Drift monitoring
-The API keeps the last 1,000 scored transactions and `GET /drift` compares them with the training distribution using the Population Stability Index (PSI) per feature (< 0.1 stable, 0.1-0.25 moderate, > 0.25 significant). It returns the overall status and features ranked by drift, and reports `insufficient_data` until 100 transactions have been scored. Reference bins are stored with the model at train time.
+The API keeps the last 1,000 scored transactions and `GET /drift` compares them with the training distribution using the Population Stability Index (PSI) per feature (< 0.1 stable, 0.1-0.25 moderate, > 0.25 significant). It returns the overall status and features ranked by drift, and reports `insufficient_data` until 100 transactions have been scored. The buffer is stored in **Redis** when `REDIS_URL` is set (so it survives restarts and is shared across workers) and falls back to memory otherwise, including if Redis goes down, so monitoring can never break `/predict`; `/drift` reports which `buffer` backend is in use. Reference bins are stored with the model at train time.
 
 Offline demo (`python -m src.drift --data real`): held-out data scores max PSI 0.0003 (stable); the same data shifted by +1 std scores 8.3 (significant, led by `Amount`).
 
@@ -58,6 +58,14 @@ python -m src.registry promote       # gate, set `production` alias, export to m
 python -m src.registry list          # versions, PR-AUC, cost, aliases
 ```
 The gate refuses a candidate whose PR-AUC is lower than the current production model, or that was trained on a different dataset, unless you pass `--force`. The API only serves the promoted model (`models/model.joblib`), never a raw training output.
+
+## Drift-triggered retraining
+`src/retrain.py` reads the live `/drift` report and, only when overall drift is **significant**, trains a new candidate and sends it through the registry's promotion gate:
+
+```bash
+python -m src.retrain --api-url https://fraud-detection-api-o6vb.onrender.com/drift --data real
+```
+It is meant to run on a schedule (cron / CI). The output says whether it retrained and whether the gate promoted the new version. In production the retraining data would be fresh *labelled* transactions (e.g. confirmed fraud cases joined to the logged traffic); this demo retrains on the configured dataset because logged traffic has no labels.
 
 ## Run it
 ```bash
@@ -82,4 +90,4 @@ curl -X POST localhost:8000/predict -H 'content-type: application/json' \
 `render.yaml` is a Render blueprint: it builds the Dockerfile with `DATA=real` (trains on the real dataset during the build) and serves the API, with `/health` as the health check. Interactive docs are at `/docs`.
 
 ## Next steps
-Automated retraining when drift is significant, a persistent drift buffer (Redis).
+Scheduled retraining job, alerting on drift, labelled-feedback loop.

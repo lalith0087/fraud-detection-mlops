@@ -10,3 +10,5 @@ httpx
 mlflow
 pyarrow
 matplotlib
+redis
+fakeredis
